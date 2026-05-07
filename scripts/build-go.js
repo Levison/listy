@@ -4,108 +4,49 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import https from 'https'
 import { fileURLToPath } from 'url'
+import { downloadVerified } from './lib/verified-download.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// FFmpeg download URLs for different platforms
-const FFMPEG_URLS = {
-  win32:
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
-  darwin: 'https://evermeet.cx/ffmpeg/ffmpeg-8.0.zip', // Use available release version
-  linux:
-    'https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz',
+const nativeManifestPath = path.join(__dirname, 'native-artifacts.manifest.json')
+const nativeArtifacts = JSON.parse(fs.readFileSync(nativeManifestPath, 'utf8'))
+
+function artifactEntry(key) {
+  const e = nativeArtifacts.artifacts[key]
+  if (!e) {
+    throw new Error(`native-artifacts.manifest.json: missing artifact "${key}"`)
+  }
+  if (!e.sha256 || !/^[a-f0-9]{64}$/.test(e.sha256)) {
+    throw new Error(
+      `native-artifacts.manifest.json: bad or missing sha256 for "${key}". Run: npm run artifacts:refresh-hashes`
+    )
+  }
+  return e
 }
 
-// Whisper.cpp download URLs for different platforms (using aliceai.ca hosting for reliability)
-const WHISPER_URLS = {
-  win32: 'https://aliceai.ca/app_assets/whisper/whisper-windows.zip',
-  darwin: {
-    x64: 'https://aliceai.ca/app_assets/whisper/whisper-macos-x64.zip',
-    arm64: 'https://aliceai.ca/app_assets/whisper/whisper-macos-arm64.zip',
-  },
-  linux: {
-    x64: 'https://aliceai.ca/app_assets/whisper/whisper-linux-x64.zip',
-  },
+async function downloadArtifact(key, outputPath) {
+  const meta = artifactEntry(key)
+  const origin = meta.upstream ?? meta.url
+  console.log(`Verified download [${key}] (documented origin: ${origin})`)
+  await downloadVerified(meta.url, outputPath, meta.sha256, { label: key })
 }
 
-// Piper TTS download URLs for different platforms (matching Go backend URLs)
-const PIPER_URLS = {
-  win32: 'https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip',
-  darwin: {
-    x64: 'https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_x64.tar.gz',
-    arm64: 'https://raw.githubusercontent.com/pmbstyle/Alice/main/assets/binaries/piper-macos-arm64',
-  },
-  linux: {
-    x64: 'https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz',
-    arm64: 'https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_aarch64.tar.gz',
-  },
+function whisperArtifactKey(platform, arch) {
+  if (platform === 'win32') return 'whisper-win32'
+  if (platform === 'darwin') {
+    return arch === 'arm64' ? 'whisper-darwin-arm64' : 'whisper-darwin-x64'
+  }
+  return 'whisper-linux-x64'
 }
 
-/**
- * Download a file from URL
- */
-function downloadFile(url, outputPath) {
-  return new Promise((resolve, reject) => {
-    console.log(`Downloading: ${url}`)
-    const file = fs.createWriteStream(outputPath)
-
-    https
-      .get(url, response => {
-        // Handle redirects
-        if (response.statusCode === 302 || response.statusCode === 301) {
-          file.close()
-          fs.unlinkSync(outputPath)
-
-          let redirectUrl = response.headers.location
-          // Handle relative redirects
-          if (redirectUrl.startsWith('/')) {
-            const urlObj = new URL(url)
-            redirectUrl = `${urlObj.protocol}//${urlObj.host}${redirectUrl}`
-          }
-
-          console.log(`Redirecting to: ${redirectUrl}`)
-          return downloadFile(redirectUrl, outputPath)
-            .then(resolve)
-            .catch(reject)
-        }
-
-        if (response.statusCode !== 200) {
-          file.close()
-          fs.unlinkSync(outputPath)
-          return reject(
-            new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`)
-          )
-        }
-
-        response.pipe(file)
-
-        file.on('finish', () => {
-          file.close(() => {
-            response.destroy()  // Properly close the HTTP response
-            resolve()
-          })
-        })
-
-        file.on('error', (err) => {
-          file.close()
-          response.destroy()
-          if (fs.existsSync(outputPath)) {
-            fs.unlinkSync(outputPath)
-          }
-          reject(err)
-        })
-      })
-      .on('error', err => {
-        file.close()
-        if (fs.existsSync(outputPath)) {
-          fs.unlinkSync(outputPath)
-        }
-        reject(err)
-      })
-  })
+function piperArtifactKey(platform, arch) {
+  if (platform === 'win32') return 'piper-win32'
+  if (platform === 'darwin') {
+    return arch === 'arm64' ? 'piper-darwin-arm64' : 'piper-darwin-x64'
+  }
+  return 'piper-linux-x64'
 }
 
 /**
@@ -602,22 +543,12 @@ async function ensurePiper() {
     fs.mkdirSync(backendBinDir, { recursive: true })
   }
 
-  // Get download URL for platform
-  let downloadUrl = PIPER_URLS[platform]
-
-  // Handle architecture selection for macOS and Linux
-  if (typeof downloadUrl === 'object') {
-    if (platform === 'darwin') {
-      downloadUrl = arch === 'arm64' ? downloadUrl.arm64 : downloadUrl.x64
-    } else if (platform === 'linux') {
-      downloadUrl = downloadUrl.x64 // Default to x64 for Linux
-    }
-  }
-
-  if (!downloadUrl) {
-    console.warn(
-      `⚠️  No piper download URL configured for platform: ${platform}/${arch}`
-    )
+  const piperKey = piperArtifactKey(platform, arch)
+  let downloadUrl
+  try {
+    downloadUrl = artifactEntry(piperKey).url
+  } catch (e) {
+    console.warn(`⚠️  ${e.message}`)
     return false
   }
 
@@ -631,11 +562,10 @@ async function ensurePiper() {
     } else if (downloadUrl.includes('piper-macos-arm64')) {
       archiveExt = '' // Direct binary
     }
-    
+
     const archivePath = path.join(backendBinDir, `piper-download${archiveExt}`)
 
-    // Download the archive
-    await downloadFile(downloadUrl, archivePath)
+    await downloadArtifact(piperKey, archivePath)
     console.log('✅ Piper download completed')
 
     // Handle direct binary for macOS ARM64
@@ -691,22 +621,11 @@ async function ensureWhisper() {
     fs.mkdirSync(backendBinDir, { recursive: true })
   }
 
-  // Get download URL for platform
-  let downloadUrl = WHISPER_URLS[platform]
-
-  // Handle architecture selection for macOS and Linux
-  if (typeof downloadUrl === 'object') {
-    if (platform === 'darwin') {
-      downloadUrl = arch === 'arm64' ? downloadUrl.arm64 : downloadUrl.x64
-    } else if (platform === 'linux') {
-      downloadUrl = downloadUrl.x64 // Default to x64 for Linux
-    }
-  }
-
-  if (!downloadUrl) {
-    console.warn(
-      `⚠️  No whisper download URL configured for platform: ${platform}/${arch}`
-    )
+  const whisperKey = whisperArtifactKey(platform, arch)
+  try {
+    artifactEntry(whisperKey)
+  } catch (e) {
+    console.warn(`⚠️  ${e.message}`)
     return false
   }
 
@@ -715,8 +634,7 @@ async function ensureWhisper() {
 
     const archivePath = path.join(backendBinDir, 'whisper-download.zip')
 
-    // Download the archive
-    await downloadFile(downloadUrl, archivePath)
+    await downloadArtifact(whisperKey, archivePath)
     console.log('✅ Whisper download completed')
 
     // Extract whisper binary
@@ -764,10 +682,8 @@ async function ensureWhisperModel() {
 
   try {
     console.log('📥 Downloading whisper base model...')
-    const modelUrl =
-      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin'
 
-    await downloadFile(modelUrl, modelPath)
+    await downloadArtifact('whisper-model-ggml-base', modelPath)
     console.log(`✅ Whisper model downloaded: ${modelPath}`)
     return true
   } catch (error) {
@@ -915,24 +831,18 @@ async function downloadRequiredVoiceModels() {
   const requiredVoices = [
     {
       name: 'en_US-amy-medium',
-      modelUrl:
-        'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx',
-      configUrl:
-        'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json',
+      manifestOnnx: 'piper-voice-en_US-amy-medium-onnx',
+      manifestJson: 'piper-voice-en_US-amy-medium-json',
     },
     {
       name: 'en_US-hfc_female-medium',
-      modelUrl:
-        'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx',
-      configUrl:
-        'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx.json',
+      manifestOnnx: 'piper-voice-en_US-hfc_female-medium-onnx',
+      manifestJson: 'piper-voice-en_US-hfc_female-medium-json',
     },
     {
       name: 'en_US-kristin-medium',
-      modelUrl:
-        'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx',
-      configUrl:
-        'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx.json',
+      manifestOnnx: 'piper-voice-en_US-kristin-medium-onnx',
+      manifestJson: 'piper-voice-en_US-kristin-medium-json',
     },
   ]
 
@@ -951,15 +861,13 @@ async function downloadRequiredVoiceModels() {
 
       console.log(`📥 Downloading ${voice.name}...`)
 
-      // Download model file (.onnx)
       if (!fs.existsSync(modelPath)) {
-        await downloadFile(voice.modelUrl, modelPath)
+        await downloadArtifact(voice.manifestOnnx, modelPath)
         console.log(`✅ Downloaded model: ${voice.name}.onnx`)
       }
 
-      // Download config file (.onnx.json)
       if (!fs.existsSync(configPath)) {
-        await downloadFile(voice.configUrl, configPath)
+        await downloadArtifact(voice.manifestJson, configPath)
         console.log(`✅ Downloaded config: ${voice.name}.onnx.json`)
       }
     } catch (error) {
@@ -995,24 +903,22 @@ async function ensureFFmpeg() {
     fs.mkdirSync(backendBinDir, { recursive: true })
   }
 
-  // Get download URL for platform
-  const downloadUrl = FFMPEG_URLS[platform]
-  if (!downloadUrl) {
-    console.warn(
-      `⚠️  No ffmpeg download URL configured for platform: ${platform}`
-    )
+  const ffmpegKey = `ffmpeg-${platform}`
+  let downloadUrl
+  try {
+    downloadUrl = artifactEntry(ffmpegKey).url
+  } catch (e) {
+    console.warn(`⚠️  ${e.message}`)
     return false
   }
 
   try {
     console.log(`📥 Downloading ffmpeg for ${platform}...`)
 
-    // Determine archive filename based on URL
     const archiveExt = downloadUrl.includes('.zip') ? '.zip' : '.tar.xz'
     const archivePath = path.join(backendBinDir, `ffmpeg-download${archiveExt}`)
 
-    // Download the archive
-    await downloadFile(downloadUrl, archivePath)
+    await downloadArtifact(ffmpegKey, archivePath)
     console.log('✅ Download completed')
 
     // Extract ffmpeg binary
@@ -1083,6 +989,39 @@ function setupFFmpegForUser() {
   }
 }
 
+/**
+ * github.com/yalue/onnxruntime_go requires CGO. On Windows, Go sets CGO_ENABLED=0
+ * when gcc is not on PATH; ensure CGO is on and prepend common MinGW locations.
+ */
+function envForGoBuild() {
+  const env = { ...process.env, CGO_ENABLED: '1' }
+  if (process.platform !== 'win32') return env
+
+  const sep = path.delimiter
+  const parts = (env.Path || env.PATH || '').split(sep).filter(Boolean)
+  const pf = env.ProgramFiles || 'C:\\Program Files'
+  const pfx86 = env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'
+  const goDirs = [path.join(pf, 'Go', 'bin'), path.join(pfx86, 'Go', 'bin')].filter(
+    dir => dir && fs.existsSync(path.join(dir, 'go.exe'))
+  )
+  const gccDirs = [
+    'C:\\msys64\\ucrt64\\bin',
+    'C:\\msys64\\mingw64\\bin',
+    'C:\\mingw64\\bin',
+    'C:\\TDM-GCC-64\\bin',
+    'C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin',
+    path.join(env.LOCALAPPDATA || '', 'Programs', 'msys64', 'mingw64', 'bin'),
+  ]
+  const extra = []
+  for (const dir of gccDirs) {
+    if (dir && fs.existsSync(path.join(dir, 'gcc.exe'))) extra.push(dir)
+  }
+  const pathStr = [...extra, ...goDirs, ...parts].join(sep)
+  env.Path = pathStr
+  env.PATH = pathStr
+  return env
+}
+
 async function buildGoBackend() {
   const platform = os.platform()
   const isWindows = platform === 'win32'
@@ -1103,10 +1042,22 @@ async function buildGoBackend() {
   console.log(`Building Go backend for ${platform}...`)
   console.log(`Command: ${buildCmd}`)
 
+  const goEnv = envForGoBuild()
+  if (isWindows) {
+    try {
+      execSync('where gcc', { stdio: 'ignore', shell: true, env: goEnv })
+    } catch {
+      console.warn(
+        '⚠️  gcc not found on PATH. The backend uses onnxruntime_go (CGO); install MinGW (e.g. MSYS2: https://www.msys2.org/ , then pacman -S mingw-w64-ucrt-x86_64-gcc and add ucrt64\\bin to PATH).\n'
+      )
+    }
+  }
+
   try {
     execSync(buildCmd, {
       stdio: 'inherit',
       shell: true,
+      env: goEnv,
     })
 
     // Verify the binary was created
@@ -1167,6 +1118,17 @@ async function buildGoBackend() {
     }
   } catch (error) {
     console.error('Failed to build Go backend:', error.message)
+    const msg = String(error.message || '')
+    if (
+      isWindows &&
+      (/cgo|C compiler|onnxruntime_go|build constraints exclude/i.test(msg) ||
+        /Command failed.*go build/i.test(msg))
+    ) {
+      console.error(
+        '\nThis backend depends on github.com/yalue/onnxruntime_go, which needs CGO and gcc on Windows.\n' +
+          'Install a MinGW toolchain (e.g. MSYS2: https://www.msys2.org/ → pacman -S mingw-w64-ucrt-x86_64-gcc, then ensure C:\\msys64\\ucrt64\\bin is on PATH), or: choco install mingw (admin shell).\n'
+      )
+    }
     process.exit(1)
   }
 }

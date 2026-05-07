@@ -2,10 +2,10 @@
 
 import fs from 'fs';
 import path from 'path';
-import https from 'https';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
+import { downloadVerified } from './lib/verified-download.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,27 +19,43 @@ const BACKEND_DIR = path.join(__dirname, '..', 'backend');
 const MODELS_DIR = path.join(BACKEND_DIR, 'models');
 const LIB_DIR = path.join(BACKEND_DIR, 'lib');
 
-// Platform-specific library configurations
+const nativeManifestPath = path.join(__dirname, 'native-artifacts.manifest.json');
+const nativeArtifacts = JSON.parse(fs.readFileSync(nativeManifestPath, 'utf8'));
+
+function onnxArtifactEntry(key) {
+  const e = nativeArtifacts.artifacts[key];
+  if (!e) {
+    throw new Error(`native-artifacts.manifest.json: missing artifact "${key}"`);
+  }
+  if (!e.sha256 || !/^[a-f0-9]{64}$/.test(e.sha256)) {
+    throw new Error(
+      `native-artifacts.manifest.json: bad or missing sha256 for "${key}". Run: npm run artifacts:refresh-hashes`
+    );
+  }
+  return e;
+}
+
+// Platform-specific extract paths (URLs and sha256 live in native-artifacts.manifest.json)
 const PLATFORMS = {
   'win32-x64': {
-    url: `https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_RUNTIME_VERSION}/onnxruntime-win-x64-${ONNX_RUNTIME_VERSION}.zip`,
+    manifestKey: 'onnxruntime-win32-x64',
     libFile: 'onnxruntime.dll',
     extractPath: `onnxruntime-win-x64-${ONNX_RUNTIME_VERSION}/lib/onnxruntime.dll`
   },
   'linux-x64': {
-    url: `https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_RUNTIME_VERSION}/onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}.tgz`,
+    manifestKey: 'onnxruntime-linux-x64',
     libFile: 'libonnxruntime.so',
     extractPath: `onnxruntime-linux-x64-${ONNX_RUNTIME_VERSION}/lib/libonnxruntime.so`
   },
   'darwin-arm64': {
-    url: `https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_RUNTIME_VERSION}/onnxruntime-osx-arm64-${ONNX_RUNTIME_VERSION}.tgz`,
+    manifestKey: 'onnxruntime-darwin-arm64',
     libFile: 'libonnxruntime.dylib',
     extractPath: `onnxruntime-osx-arm64-${ONNX_RUNTIME_VERSION}/lib/libonnxruntime.dylib`
   },
   'darwin-x64': {
-    url: `https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_RUNTIME_VERSION}/onnxruntime-osx-x64-${ONNX_RUNTIME_VERSION}.tgz`,
+    manifestKey: 'onnxruntime-darwin-x64',
     libFile: 'libonnxruntime.dylib',
-    extractPath: `onnxruntime-osx-x64-${ONNX_RUNTIME_VERSION}/lib/libonnxruntime.dylib`
+    extractPath: `onnxruntime-osx-x86_64-${ONNX_RUNTIME_VERSION}/lib/libonnxruntime.dylib`
   }
 };
 
@@ -49,38 +65,6 @@ function ensureDir(dir) {
     fs.mkdirSync(dir, { recursive: true });
     console.log(`Created directory: ${dir}`);
   }
-}
-
-function downloadFile(url, dest) {
-  return new Promise((resolve, reject) => {
-    console.log(`Downloading ${url}...`);
-    const file = fs.createWriteStream(dest);
-
-    https.get(url, (response) => {
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        // Handle redirect
-        return downloadFile(response.headers.location, dest).then(resolve).catch(reject);
-      }
-
-      if (response.statusCode !== 200) {
-        reject(new Error(`Download failed with status: ${response.statusCode}`));
-        return;
-      }
-
-      response.pipe(file);
-
-      file.on('finish', () => {
-        file.close();
-        console.log(`Downloaded: ${dest}`);
-        resolve();
-      });
-
-      file.on('error', (err) => {
-        fs.unlink(dest, () => {}); // Delete the file on error
-        reject(err);
-      });
-    }).on('error', reject);
-  });
 }
 
 async function extractArchive(archivePath, extractDir) {
@@ -119,14 +103,19 @@ async function downloadOnnxRuntime() {
     const platformDir = path.join(LIB_DIR, platform);
     ensureDir(platformDir);
 
-    const archiveName = path.basename(config.url);
+    const meta = onnxArtifactEntry(config.manifestKey);
+    const archiveName = path.basename(new URL(meta.url).pathname);
     const archivePath = path.join(tempDir, archiveName);
     const extractDir = path.join(tempDir, platform);
     ensureDir(extractDir);
 
     try {
-      // Download
-      await downloadFile(config.url, archivePath);
+      console.log(
+        `Verified download [${config.manifestKey}] (documented origin: ${meta.upstream ?? meta.url})`
+      );
+      await downloadVerified(meta.url, archivePath, meta.sha256, {
+        label: config.manifestKey
+      });
 
       // Extract
       await extractArchive(archivePath, extractDir);

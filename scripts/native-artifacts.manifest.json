@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "description": "Pinned URLs and SHA-256 for externally fetched native artifacts. When upstream changes, run npm run artifacts:refresh-hashes and commit.",
+  "artifacts": {
+    "ffmpeg-win32": {
+      "upstream": "https://github.com/BtbN/FFmpeg-Builds/releases (asset ffmpeg-master-latest-win64-gpl.zip)",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+      "sha256": "d1645823061ab762ebc95879e413c0cae82d5f4405244ce6f8eef34c9b19124d"
+    },
+    "ffmpeg-darwin": {
+      "upstream": "https://evermeet.cx/ffmpeg/",
+      "url": "https://evermeet.cx/ffmpeg/ffmpeg-8.0.zip",
+      "sha256": "3bd3f23f12bd84d21a5756efb8c5d841cb4c1d6aac42ea817bf39ec5c602a807"
+    },
+    "ffmpeg-linux": {
+      "upstream": "https://johnvansickle.com/ffmpeg/",
+      "url": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+      "sha256": "abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67"
+    },
+    "whisper-win32": {
+      "upstream": "https://aliceai.ca/app_assets/whisper/ (project mirror; prefer replacing with signed upstream when available)",
+      "url": "https://aliceai.ca/app_assets/whisper/whisper-windows.zip",
+      "sha256": "aef97d3d73d23809d38536c49d25ef8c2d0b7cdc3ec2a767b867a24826ebdd24"
+    },
+    "whisper-darwin-x64": {
+      "upstream": "https://aliceai.ca/app_assets/whisper/",
+      "url": "https://aliceai.ca/app_assets/whisper/whisper-macos-x64.zip",
+      "sha256": "39110e0dc551744b7575601d33ef5c52675e510acba6d7f8a5fc59f218abcae2"
+    },
+    "whisper-darwin-arm64": {
+      "upstream": "https://aliceai.ca/app_assets/whisper/",
+      "url": "https://aliceai.ca/app_assets/whisper/whisper-macos-arm64.zip",
+      "sha256": "9ae040b7bc3221cbf41a1e565562901f64e568dcd521bfbc1f38385d4d33b72c"
+    },
+    "whisper-linux-x64": {
+      "upstream": "https://aliceai.ca/app_assets/whisper/",
+      "url": "https://aliceai.ca/app_assets/whisper/whisper-linux-x64.zip",
+      "sha256": "a060d1f0e9a23fb59afa0135af1b898191dd1bf8c1cf2f7463948fd781eb2daf"
+    },
+    "piper-win32": {
+      "upstream": "https://github.com/rhasspy/piper/releases/tag/2023.11.14-2",
+      "url": "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip",
+      "sha256": "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea"
+    },
+    "piper-darwin-x64": {
+      "upstream": "https://github.com/rhasspy/piper/releases/tag/2023.11.14-2",
+      "url": "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_x64.tar.gz",
+      "sha256": "ced85c0a3df13945b1e623b878a48fdc2854d5c485b4b67f62857cf551deaf8b"
+    },
+    "piper-darwin-arm64": {
+      "upstream": "https://github.com/pmbstyle/Alice (raw binary; consider rhasspy release when available)",
+      "url": "https://raw.githubusercontent.com/pmbstyle/Alice/main/assets/binaries/piper-macos-arm64",
+      "sha256": "31696df13147c5ead18bc8f6aba02c12d6a045be0af0992d76d3b391f0ec8998"
+    },
+    "piper-linux-x64": {
+      "upstream": "https://github.com/rhasspy/piper/releases/tag/2023.11.14-2",
+      "url": "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz",
+      "sha256": "a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992"
+    },
+    "piper-linux-arm64": {
+      "upstream": "https://github.com/rhasspy/piper/releases/tag/2023.11.14-2",
+      "url": "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_aarch64.tar.gz",
+      "sha256": "fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb"
+    },
+    "whisper-model-ggml-base": {
+      "upstream": "https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-base.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+      "sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"
+    },
+    "piper-voice-en_US-amy-medium-onnx": {
+      "upstream": "https://huggingface.co/rhasspy/piper-voices",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx",
+      "sha256": "b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18"
+    },
+    "piper-voice-en_US-amy-medium-json": {
+      "upstream": "https://huggingface.co/rhasspy/piper-voices",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json",
+      "sha256": "95a23eb4d42909d38df73bb9ac7f45f597dbfcde2d1bf9526fdeaf5466977d77"
+    },
+    "piper-voice-en_US-hfc_female-medium-onnx": {
+      "upstream": "https://huggingface.co/rhasspy/piper-voices",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx",
+      "sha256": "914c473788fc1fa8b63ace1cdcdb44588f4ae523d3ab37df1536616835a140b7"
+    },
+    "piper-voice-en_US-hfc_female-medium-json": {
+      "upstream": "https://huggingface.co/rhasspy/piper-voices",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx.json",
+      "sha256": "03f1fa0622b80463283592d97aca9f6e89aec345a5c56b7257723e0093c58b6c"
+    },
+    "piper-voice-en_US-kristin-medium-onnx": {
+      "upstream": "https://huggingface.co/rhasspy/piper-voices",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx",
+      "sha256": "5849957f929cbf720c258f8458692d6103fff2f0e3d3b19c8259474bb06a18d4"
+    },
+    "piper-voice-en_US-kristin-medium-json": {
+      "upstream": "https://huggingface.co/rhasspy/piper-voices",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/kristin/medium/en_US-kristin-medium.onnx.json",
+      "sha256": "5681426d4aead22195de70531eeeeddb46493cfaffc5764b2ea3db73428b651c"
+    },
+    "onnxruntime-win32-x64": {
+      "upstream": "https://github.com/microsoft/onnxruntime/releases/tag/v1.21.0",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.21.0/onnxruntime-win-x64-1.21.0.zip",
+      "sha256": "5c07bb2805cd666dda75fa9bfa60e75f2f90d478b952298dd9d55c00740d81bf"
+    },
+    "onnxruntime-linux-x64": {
+      "upstream": "https://github.com/microsoft/onnxruntime/releases/tag/v1.21.0",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.21.0/onnxruntime-linux-x64-1.21.0.tgz",
+      "sha256": "7485c7e7aac6501b27e353dcbe068e45c61ab51fbaf598d13970dfae669d20bf"
+    },
+    "onnxruntime-darwin-arm64": {
+      "upstream": "https://github.com/microsoft/onnxruntime/releases/tag/v1.21.0",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.21.0/onnxruntime-osx-arm64-1.21.0.tgz",
+      "sha256": "5c3f2064ee97eb7774e87f396735c8eada7287734f1bb7847467ad30d4036115"
+    },
+    "onnxruntime-darwin-x64": {
+      "upstream": "https://github.com/microsoft/onnxruntime/releases/tag/v1.21.0 (artifact onnxruntime-osx-x86_64)",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.21.0/onnxruntime-osx-x86_64-1.21.0.tgz",
+      "sha256": "8305afd2d75ee5702844a23b099d41885af30ad3d1b4cf3d8d795e3d8c1f9396"
+    }
+  }
+}

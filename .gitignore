@@ -48,6 +48,10 @@ resources/python/alice-ai-backend.exe
 AGENTS.md
 backend/alice-backend
 
+# Prebuilt binaries under assets/ (sources of truth are upstream URLs in scripts/native-artifacts.manifest.json)
+assets/binaries/*
+!assets/binaries/.gitkeep
+
 # User customization sandbox (allow sample fixtures)
 user-customization/*
 !user-customization/.gitkeep
