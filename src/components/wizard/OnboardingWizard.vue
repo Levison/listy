@@ -16,6 +16,7 @@
           :is-testing="isTesting"
           @test-openai="testOpenAIKey"
           @test-openrouter="testOpenRouterKey"
+          @test-cursor="testCursorKey"
           @test-zai="testZAIKey"
           @test-minimax="testMiniMaxKey"
           @test-ollama="testOllamaConnection"
@@ -60,11 +61,14 @@ import VoiceModelsStep from './steps/VoiceModelsStep.vue'
 import FinalSetupStep from './steps/FinalSetupStep.vue'
 import OpenAI from 'openai'
 import {
+  CURSOR_LLM_DEFAULT_BASE_URL,
   MINIMAX_OPENAI_BASE_URL,
+  PROVIDER_CONFIGS,
   ZAI_CODING_MODELS,
   ZAI_CODING_BASE_URL,
   type AIProviderKey,
 } from '../../services/llmProviders/providerCatalog'
+import { normalizeCursorLlmBaseUrl } from '../../services/llmProviders/cursorLlmUtils'
 import { listMiniMaxModelsForConfig } from '../../services/llmProviders/minimax'
 
 const step = ref(1)
@@ -74,6 +78,7 @@ const scrollContainer = ref<HTMLElement>()
 const formData = reactive({
   VITE_OPENAI_API_KEY: '',
   VITE_OPENROUTER_API_KEY: '',
+  VITE_CURSOR_API_KEY: '',
   VITE_ZAI_API_KEY: '',
   VITE_MINIMAX_API_KEY: '',
   aiProvider: 'openai' as AIProviderKey,
@@ -88,6 +93,7 @@ const formData = reactive({
   lmStudioBaseUrl: 'http://localhost:1234',
   zaiBaseUrl: ZAI_CODING_BASE_URL,
   minimaxBaseUrl: MINIMAX_OPENAI_BASE_URL,
+  cursorLlmBaseUrl: '',
   useLocalModels: false,
   availableModels: [] as string[],
   localSttLanguage: 'auto',
@@ -100,6 +106,7 @@ function isAuthError(error: any): boolean {
 const isTesting = reactive({
   openai: false,
   openrouter: false,
+  cursor: false,
   zai: false,
   minimax: false,
   ollama: false,
@@ -109,6 +116,7 @@ const isTesting = reactive({
 const testResult = reactive({
   openai: { success: false, error: '' },
   openrouter: { success: false, error: '' },
+  cursor: { success: false, error: '' },
   zai: { success: false, error: '' },
   minimax: { success: false, error: '' },
   ollama: { success: false, error: '' },
@@ -141,6 +149,7 @@ const canContinue = computed(() => {
         (formData.aiProvider === 'ollama' ||
           formData.aiProvider === 'lm-studio' ||
           formData.aiProvider === 'openrouter' ||
+          formData.aiProvider === 'cursor' ||
           formData.aiProvider === 'zai' ||
           formData.aiProvider === 'minimax') &&
         !formData.VITE_OPENAI_API_KEY.trim()
@@ -202,6 +211,12 @@ watch(
     } else if (newProvider === 'minimax') {
       formData.assistantModel = 'MiniMax-M2.7'
       formData.summarizationModel = 'MiniMax-M2.7'
+    } else if (newProvider === 'cursor') {
+      formData.assistantModel = PROVIDER_CONFIGS.cursor.defaultModel
+      formData.summarizationModel = PROVIDER_CONFIGS.cursor.defaultModel
+      if (!formData.cursorLlmBaseUrl.trim()) {
+        formData.cursorLlmBaseUrl = CURSOR_LLM_DEFAULT_BASE_URL
+      }
     }
   }
 )
@@ -217,6 +232,8 @@ const fetchAvailableModels = async () => {
       baseURL = formData.zaiBaseUrl
     } else if (formData.aiProvider === 'minimax') {
       baseURL = formData.minimaxBaseUrl
+    } else if (formData.aiProvider === 'cursor') {
+      baseURL = normalizeCursorLlmBaseUrl(formData.cursorLlmBaseUrl)
     } else {
       return
     }
@@ -239,7 +256,9 @@ const fetchAvailableModels = async () => {
       apiKey:
         formData.aiProvider === 'zai'
           ? formData.VITE_ZAI_API_KEY
-          : formData.aiProvider,
+          : formData.aiProvider === 'cursor'
+            ? formData.VITE_CURSOR_API_KEY
+            : formData.aiProvider,
       baseURL,
       dangerouslyAllowBrowser: true,
     })
@@ -325,6 +344,35 @@ const testOpenRouterKey = async () => {
     }
   } finally {
     isTesting.openrouter = false
+  }
+}
+
+const testCursorKey = async () => {
+  if (!formData.VITE_CURSOR_API_KEY.trim()) {
+    testResult.cursor.error = 'API Key cannot be empty.'
+    testResult.cursor.success = false
+    return
+  }
+  if (!formData.cursorLlmBaseUrl.trim()) {
+    testResult.cursor.error = 'Base URL cannot be empty.'
+    testResult.cursor.success = false
+    return
+  }
+
+  isTesting.cursor = true
+  testResult.cursor.error = ''
+  testResult.cursor.success = false
+
+  try {
+    normalizeCursorLlmBaseUrl(formData.cursorLlmBaseUrl)
+    await fetchAvailableModels()
+    testResult.cursor.success = true
+  } catch (e: any) {
+    testResult.cursor.error =
+      e?.message ||
+      'Cursor LLM gateway unreachable or invalid OpenAI-compatible endpoint.'
+  } finally {
+    isTesting.cursor = false
   }
 }
 
@@ -473,6 +521,8 @@ const resetTestResults = () => {
   testResult.openai.error = ''
   testResult.openrouter.success = false
   testResult.openrouter.error = ''
+  testResult.cursor.success = false
+  testResult.cursor.error = ''
   testResult.zai.success = false
   testResult.zai.error = ''
   testResult.minimax.success = false
@@ -488,6 +538,12 @@ const isCurrentProviderTested = () => {
     return testResult.openai.success
   } else if (formData.aiProvider === 'openrouter') {
     return testResult.openrouter.success
+  } else if (formData.aiProvider === 'cursor') {
+    return (
+      testResult.cursor.success &&
+      Boolean(formData.assistantModel) &&
+      Boolean(formData.summarizationModel)
+    )
   } else if (formData.aiProvider === 'zai') {
     return (
       testResult.zai.success &&

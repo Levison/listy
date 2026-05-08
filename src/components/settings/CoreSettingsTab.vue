@@ -19,6 +19,7 @@
           >
             <option value="openai">OpenAI</option>
             <option value="openrouter">OpenRouter</option>
+            <option value="cursor">Cursor (OpenAI-compatible gateway)</option>
             <option value="zai">Z.ai (Coding Plan)</option>
             <option value="minimax">MiniMax</option>
             <option value="ollama">Ollama (Local)</option>
@@ -104,6 +105,38 @@
           />
           <p class="text-xs text-gray-400 mt-1">
             Required for TTS/STT/embeddings regardless of AI provider.
+          </p>
+        </div>
+        <div v-if="currentSettings.aiProvider === 'cursor'">
+          <label for="cursor-llm-key" class="block mb-1 text-sm"
+            >Cursor LLM API Key *</label
+          >
+          <input
+            id="cursor-llm-key"
+            type="password"
+            v-model="currentSettings.VITE_CURSOR_API_KEY"
+            class="input focus:outline-none w-full"
+            autocomplete="new-password"
+            placeholder="cursor_… or gateway key"
+          />
+          <p class="text-xs text-gray-400 mt-1">
+            Bearer token for your OpenAI-compatible Cursor/gateway endpoint.
+          </p>
+        </div>
+        <div v-if="currentSettings.aiProvider === 'cursor'">
+          <label for="cursor-llm-url" class="block mb-1 text-sm"
+            >Cursor LLM Base URL *</label
+          >
+          <input
+            id="cursor-llm-url"
+            type="text"
+            v-model="currentSettings.cursorLlmBaseUrl"
+            class="input focus:outline-none w-full"
+            :placeholder="CURSOR_LLM_DEFAULT_BASE_URL"
+          />
+          <p class="text-xs text-gray-400 mt-1">
+            Must end with /v1. Must expose OpenAI-compatible routes (e.g.
+            /v1/chat/completions). Billing may differ from IDE usage credits.
           </p>
         </div>
         <div v-if="currentSettings.aiProvider === 'openrouter'">
@@ -667,6 +700,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { AliceSettings } from '../../stores/settingsStore'
 import { backendApi, type Voice } from '../../services/backendApi'
+import { CURSOR_LLM_DEFAULT_BASE_URL } from '../../services/llmProviders/providerCatalog'
 
 // Type for service status
 interface ServiceStatus {

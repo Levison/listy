@@ -227,6 +227,7 @@
             (formData.aiProvider === 'ollama' ||
               formData.aiProvider === 'lm-studio' ||
               formData.aiProvider === 'openrouter' ||
+              formData.aiProvider === 'cursor' ||
               formData.aiProvider === 'zai' ||
               formData.aiProvider === 'minimax') &&
             !formData.VITE_OPENAI_API_KEY?.trim()
@@ -278,6 +279,7 @@
             formData.aiProvider === 'ollama' ||
             formData.aiProvider === 'lm-studio' ||
             formData.aiProvider === 'openrouter' ||
+            formData.aiProvider === 'cursor' ||
             formData.aiProvider === 'zai' ||
             formData.aiProvider === 'minimax'
           "

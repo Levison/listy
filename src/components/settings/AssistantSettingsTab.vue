@@ -62,6 +62,9 @@
                 currentSettings.VITE_OPENAI_API_KEY) ||
                 (currentSettings.aiProvider === 'openrouter' &&
                   currentSettings.VITE_OPENROUTER_API_KEY) ||
+                (currentSettings.aiProvider === 'cursor' &&
+                  currentSettings.VITE_CURSOR_API_KEY &&
+                  currentSettings.cursorLlmBaseUrl) ||
                 (currentSettings.aiProvider === 'zai' &&
                   currentSettings.VITE_ZAI_API_KEY &&
                   currentSettings.zaiBaseUrl) ||
@@ -300,6 +303,9 @@
                 currentSettings.VITE_OPENAI_API_KEY) ||
                 (currentSettings.aiProvider === 'openrouter' &&
                   currentSettings.VITE_OPENROUTER_API_KEY) ||
+                (currentSettings.aiProvider === 'cursor' &&
+                  currentSettings.VITE_CURSOR_API_KEY &&
+                  currentSettings.cursorLlmBaseUrl) ||
                 (currentSettings.aiProvider === 'zai' &&
                   currentSettings.VITE_ZAI_API_KEY &&
                   currentSettings.zaiBaseUrl) ||
@@ -516,6 +522,7 @@ const getProviderDisplayName = (provider: string): string => {
   const providerNames: Record<string, string> = {
     openai: 'OpenAI',
     openrouter: 'OpenRouter',
+    cursor: 'Cursor',
     ollama: 'Ollama',
     'lm-studio': 'LM Studio',
     zai: 'Z.ai',

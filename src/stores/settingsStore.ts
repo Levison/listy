@@ -5,6 +5,7 @@ import { useGeneralStore } from './generalStore'
 import { reinitializeClients } from '../services/apiClients'
 import { DEFAULT_PERSONA_PROMPT } from '../prompts/defaultPersonaPrompt'
 import {
+  CURSOR_LLM_DEFAULT_BASE_URL,
   MINIMAX_OPENAI_BASE_URL,
   PROVIDER_CONFIGS,
   ZAI_CODING_BASE_URL,
@@ -12,6 +13,7 @@ import {
   getSafeProviderModel,
   type AIProviderKey,
 } from '../services/llmProviders/providerCatalog'
+import { normalizeCursorLlmBaseUrl } from '../services/llmProviders/cursorLlmUtils'
 
 export const DEFAULT_ASSISTANT_PERSONA_PROMPT = DEFAULT_PERSONA_PROMPT
 
@@ -30,6 +32,7 @@ Do not add any conversational fluff, commentary, or an introductory/concluding s
 export interface AliceSettings {
   VITE_OPENAI_API_KEY: string
   VITE_OPENROUTER_API_KEY: string
+  VITE_CURSOR_API_KEY: string
   VITE_ZAI_API_KEY: string
   VITE_MINIMAX_API_KEY: string
   VITE_GROQ_API_KEY: string
@@ -47,6 +50,7 @@ export interface AliceSettings {
   lmStudioBaseUrl: string
   zaiBaseUrl: string
   minimaxBaseUrl: string
+  cursorLlmBaseUrl: string
 
   assistantModel: string
   assistantSystemPrompt: string
@@ -99,6 +103,8 @@ function hasMinimumConfigForOnboarding(config: AliceSettings): boolean {
     config.VITE_OPENROUTER_API_KEY?.trim() ||
     config.VITE_ZAI_API_KEY?.trim() ||
     config.VITE_MINIMAX_API_KEY?.trim() ||
+    config.VITE_CURSOR_API_KEY?.trim() ||
+    config.cursorLlmBaseUrl?.trim() ||
     config.ollamaBaseUrl?.trim() ||
     config.lmStudioBaseUrl?.trim()
   )
@@ -107,6 +113,7 @@ function hasMinimumConfigForOnboarding(config: AliceSettings): boolean {
 const defaultSettings: AliceSettings = {
   VITE_OPENAI_API_KEY: '',
   VITE_OPENROUTER_API_KEY: '',
+  VITE_CURSOR_API_KEY: '',
   VITE_ZAI_API_KEY: '',
   VITE_MINIMAX_API_KEY: '',
   VITE_GROQ_API_KEY: '',
@@ -123,6 +130,7 @@ const defaultSettings: AliceSettings = {
   lmStudioBaseUrl: 'http://localhost:1234',
   zaiBaseUrl: ZAI_CODING_BASE_URL,
   minimaxBaseUrl: MINIMAX_OPENAI_BASE_URL,
+  cursorLlmBaseUrl: '',
 
   assistantModel: 'gpt-4.1-mini',
   assistantSystemPrompt: DEFAULT_PERSONA_PROMPT,
@@ -177,6 +185,7 @@ const defaultSettings: AliceSettings = {
 const settingKeyToLabelMap: Record<keyof AliceSettings, string> = {
   VITE_OPENAI_API_KEY: 'OpenAI API Key',
   VITE_OPENROUTER_API_KEY: 'OpenRouter API Key',
+  VITE_CURSOR_API_KEY: 'Cursor LLM API Key',
   VITE_ZAI_API_KEY: 'Z.ai API Key',
   VITE_MINIMAX_API_KEY: 'MiniMax API Key',
   VITE_GROQ_API_KEY: 'Groq API Key (STT)',
@@ -194,6 +203,7 @@ const settingKeyToLabelMap: Record<keyof AliceSettings, string> = {
   lmStudioBaseUrl: 'LM Studio Base URL',
   zaiBaseUrl: 'Z.ai Base URL',
   minimaxBaseUrl: 'MiniMax Base URL',
+  cursorLlmBaseUrl: 'Cursor LLM Base URL',
 
   assistantModel: 'Assistant Model',
   assistantSystemPrompt: 'Assistant Persona Prompt',
@@ -240,6 +250,7 @@ const settingKeyToLabelMap: Record<keyof AliceSettings, string> = {
 const ESSENTIAL_CORE_API_KEYS: (keyof AliceSettings)[] = [
   'VITE_OPENAI_API_KEY',
   'VITE_OPENROUTER_API_KEY',
+  'VITE_CURSOR_API_KEY',
   'VITE_ZAI_API_KEY',
   'VITE_MINIMAX_API_KEY',
 ]
@@ -311,6 +322,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const validAIProviders = [
       'openai',
       'openrouter',
+      'cursor',
       'ollama',
       'lm-studio',
       'zai',
@@ -403,6 +415,8 @@ export const useSettingsStore = defineStore('settings', () => {
       essentialKeys.push('ollamaBaseUrl')
     } else if (settings.value.aiProvider === 'lm-studio') {
       essentialKeys.push('lmStudioBaseUrl')
+    } else if (settings.value.aiProvider === 'cursor') {
+      essentialKeys.push('VITE_CURSOR_API_KEY', 'cursorLlmBaseUrl')
     }
 
     if (requiresOpenAIKey(settings.value)) {
@@ -466,6 +480,13 @@ export const useSettingsStore = defineStore('settings', () => {
 
     if (settings.value.aiProvider === 'lm-studio') {
       return !!settings.value.lmStudioBaseUrl?.trim()
+    }
+
+    if (settings.value.aiProvider === 'cursor') {
+      return (
+        !!settings.value.VITE_CURSOR_API_KEY?.trim() &&
+        !!settings.value.cursorLlmBaseUrl?.trim()
+      )
     }
 
     return true
@@ -705,6 +726,12 @@ export const useSettingsStore = defineStore('settings', () => {
         settings.value.assistantModel = PROVIDER_CONFIGS.minimax.defaultModel
         settings.value.SUMMARIZATION_MODEL =
           PROVIDER_CONFIGS.minimax.defaultModel
+      } else if (settings.value.aiProvider === 'cursor') {
+        settings.value.assistantModel = PROVIDER_CONFIGS.cursor.defaultModel
+        settings.value.SUMMARIZATION_MODEL = PROVIDER_CONFIGS.cursor.defaultModel
+        if (!String(settings.value.cursorLlmBaseUrl || '').trim()) {
+          settings.value.cursorLlmBaseUrl = CURSOR_LLM_DEFAULT_BASE_URL
+        }
       }
     }
     if (key === 'assistantReasoningEffort') {
@@ -743,12 +770,14 @@ export const useSettingsStore = defineStore('settings', () => {
     if (
       key === 'VITE_OPENAI_API_KEY' ||
       key === 'VITE_OPENROUTER_API_KEY' ||
+      key === 'VITE_CURSOR_API_KEY' ||
       key === 'VITE_ZAI_API_KEY' ||
       key === 'VITE_MINIMAX_API_KEY' ||
       key === 'ollamaBaseUrl' ||
       key === 'lmStudioBaseUrl' ||
       key === 'zaiBaseUrl' ||
       key === 'minimaxBaseUrl' ||
+      key === 'cursorLlmBaseUrl' ||
       key === 'aiProvider'
     ) {
       coreOpenAISettingsValid.value = false
@@ -785,6 +814,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const plainSettings: AliceSettings = {
         VITE_OPENAI_API_KEY: settings.value.VITE_OPENAI_API_KEY,
         VITE_OPENROUTER_API_KEY: settings.value.VITE_OPENROUTER_API_KEY,
+        VITE_CURSOR_API_KEY: settings.value.VITE_CURSOR_API_KEY,
         VITE_ZAI_API_KEY: settings.value.VITE_ZAI_API_KEY,
         VITE_MINIMAX_API_KEY: settings.value.VITE_MINIMAX_API_KEY,
         VITE_GROQ_API_KEY: settings.value.VITE_GROQ_API_KEY,
@@ -801,6 +831,7 @@ export const useSettingsStore = defineStore('settings', () => {
         lmStudioBaseUrl: settings.value.lmStudioBaseUrl,
         zaiBaseUrl: settings.value.zaiBaseUrl,
         minimaxBaseUrl: settings.value.minimaxBaseUrl,
+        cursorLlmBaseUrl: settings.value.cursorLlmBaseUrl,
         assistantModel: settings.value.assistantModel,
         assistantSystemPrompt: settings.value.assistantSystemPrompt,
         assistantTemperature: settings.value.assistantTemperature,
@@ -888,6 +919,27 @@ export const useSettingsStore = defineStore('settings', () => {
       if (!currentConfigForTest.VITE_OPENROUTER_API_KEY?.trim()) {
         error.value = `Essential setting '${settingKeyToLabelMap.VITE_OPENROUTER_API_KEY}' is missing.`
         generalStore.statusMessage = 'OpenRouter API Key is required.'
+        isSaving.value = false
+        return
+      }
+    } else if (currentConfigForTest.aiProvider === 'cursor') {
+      if (!currentConfigForTest.VITE_CURSOR_API_KEY?.trim()) {
+        error.value = `Essential setting '${settingKeyToLabelMap.VITE_CURSOR_API_KEY}' is missing.`
+        generalStore.statusMessage = 'Cursor LLM API Key is required.'
+        isSaving.value = false
+        return
+      }
+      if (!currentConfigForTest.cursorLlmBaseUrl?.trim()) {
+        error.value = `Essential setting '${settingKeyToLabelMap.cursorLlmBaseUrl}' is missing.`
+        generalStore.statusMessage = 'Cursor LLM Base URL is required.'
+        isSaving.value = false
+        return
+      }
+      try {
+        normalizeCursorLlmBaseUrl(currentConfigForTest.cursorLlmBaseUrl)
+      } catch (e: any) {
+        error.value = e?.message || 'Invalid Cursor LLM Base URL.'
+        generalStore.statusMessage = 'Fix Cursor LLM Base URL (must end with /v1).'
         isSaving.value = false
         return
       }
@@ -1033,6 +1085,7 @@ export const useSettingsStore = defineStore('settings', () => {
   async function completeOnboarding(onboardingData: {
     VITE_OPENAI_API_KEY: string
     VITE_OPENROUTER_API_KEY: string
+    VITE_CURSOR_API_KEY?: string
     VITE_ZAI_API_KEY?: string
     VITE_MINIMAX_API_KEY?: string
     sttProvider: 'openai' | 'groq' | 'google' | 'local'
@@ -1047,12 +1100,15 @@ export const useSettingsStore = defineStore('settings', () => {
     lmStudioBaseUrl?: string
     zaiBaseUrl?: string
     minimaxBaseUrl?: string
+    cursorLlmBaseUrl?: string
     useLocalModels?: boolean
     localSttLanguage?: string
   }) {
     settings.value.VITE_OPENAI_API_KEY = onboardingData.VITE_OPENAI_API_KEY
     settings.value.VITE_OPENROUTER_API_KEY =
       onboardingData.VITE_OPENROUTER_API_KEY
+    settings.value.VITE_CURSOR_API_KEY =
+      onboardingData.VITE_CURSOR_API_KEY || ''
     settings.value.VITE_ZAI_API_KEY = onboardingData.VITE_ZAI_API_KEY || ''
     settings.value.VITE_MINIMAX_API_KEY =
       onboardingData.VITE_MINIMAX_API_KEY || ''
@@ -1095,6 +1151,15 @@ export const useSettingsStore = defineStore('settings', () => {
     }
     if (onboardingData.minimaxBaseUrl) {
       settings.value.minimaxBaseUrl = onboardingData.minimaxBaseUrl
+    }
+    if (onboardingData.cursorLlmBaseUrl) {
+      settings.value.cursorLlmBaseUrl = onboardingData.cursorLlmBaseUrl
+    }
+    if (
+      settings.value.aiProvider === 'cursor' &&
+      !String(settings.value.cursorLlmBaseUrl || '').trim()
+    ) {
+      settings.value.cursorLlmBaseUrl = CURSOR_LLM_DEFAULT_BASE_URL
     }
 
     settings.value.onboardingCompleted = true

@@ -92,7 +92,10 @@ export async function buildToolsForProvider(): Promise<any[]> {
     }
   }
 
-  if (settings.aiProvider === 'openrouter') {
+  if (
+    settings.aiProvider === 'openrouter' ||
+    settings.aiProvider === 'cursor'
+  ) {
     const allowedTools = finalToolsForApi
       .filter(tool => {
         if (

@@ -27,9 +27,9 @@ Add playback for **white**, **pink**, and **grey** noise (for example as assista
 
 ## 5. Backlog: TypeScript-only local AI backend (replace Go)
 
-**Backlog — not in active scope.** Optionally replace the Go process that serves local STT (whisper.cpp), TTS (Piper), and embeddings (ONNX) with a TypeScript / Electron-main implementation to reduce dual-toolchain cost and optionally drop localhost HTTP. Performance expectations are unchanged for subprocess-based STT/TTS; embeddings depend on choosing a native ONNX path in Node.
+**Backlog — not in active scope.** Optionally replace the Go process that serves local STT (whisper.cpp), TTS (Piper), and embeddings (ONNX) with a **TypeScript** (Node/Electron main) implementation to reduce dual-toolchain cost. **TS** = TypeScript. Embeddings target the **`onnxruntime-node`** native addon; rollout is **staged** (embeddings → TTS → STT). **All platforms** (Windows, macOS, Linux), with **Windows** as the primary manual test host; intent is **fewer** platform-specific build requirements than maintaining a separate Go backend binary. Localhost HTTP vs IPC-only is **not decided** yet (tradeoffs in the plan).
 
-**Migration plan:** [go-backend-to-typescript-migration.md](./plans/go-backend-to-typescript-migration.md) (phases, architecture options, and open decision points).
+**Migration plan:** [go-backend-to-typescript-migration.md](./plans/go-backend-to-typescript-migration.md).
 
 ---
 

@@ -6,6 +6,7 @@ import {
   MINIMAX_OPENAI_BASE_URL,
   ZAI_CODING_BASE_URL,
 } from './llmProviders/providerCatalog'
+import { normalizeCursorLlmBaseUrl } from './llmProviders/cursorLlmUtils'
 
 let openaiClient: OpenAI | null = null
 let openrouterClient: OpenAI | null = null
@@ -14,6 +15,7 @@ let ollamaClient: OpenAI | null = null
 let lmStudioClient: OpenAI | null = null
 let zaiClient: OpenAI | null = null
 let minimaxClient: OpenAI | null = null
+let cursorClient: OpenAI | null = null
 
 export function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
@@ -83,6 +85,16 @@ export function getMiniMaxClient(): OpenAI {
     throw new Error('MiniMax client could not be initialized')
   }
   return minimaxClient
+}
+
+export function getCursorClient(): OpenAI {
+  if (!cursorClient) {
+    initializeCursorClient()
+  }
+  if (!cursorClient) {
+    throw new Error('Cursor LLM client could not be initialized')
+  }
+  return cursorClient
 }
 
 function initializeOpenAIClient(): void {
@@ -198,6 +210,28 @@ function initializeMiniMaxClient(): void {
   })
 }
 
+function initializeCursorClient(): void {
+  const settings = useSettingsStore().config
+  if (!settings.VITE_CURSOR_API_KEY?.trim()) {
+    console.error('Cursor LLM API key is not configured.')
+    throw new Error('Cursor LLM API key is not configured.')
+  }
+  if (!settings.cursorLlmBaseUrl?.trim()) {
+    console.error('Cursor LLM base URL is not configured.')
+    throw new Error('Cursor LLM base URL is not configured.')
+  }
+
+  const baseURL = normalizeCursorLlmBaseUrl(settings.cursorLlmBaseUrl)
+
+  cursorClient = new OpenAI({
+    apiKey: settings.VITE_CURSOR_API_KEY,
+    baseURL,
+    dangerouslyAllowBrowser: true,
+    timeout: 120 * 1000,
+    maxRetries: 1,
+  })
+}
+
 export function reinitializeClients(): void {
   console.log('Reinitializing API clients with updated settings...')
 
@@ -255,6 +289,14 @@ export function reinitializeClients(): void {
   } catch (error) {
     console.error('Failed to reinitialize MiniMax client:', error)
     minimaxClient = null
+  }
+
+  try {
+    initializeCursorClient()
+    console.log('Cursor LLM client reinitialized successfully')
+  } catch (error) {
+    console.error('Failed to reinitialize Cursor LLM client:', error)
+    cursorClient = null
   }
 }
 

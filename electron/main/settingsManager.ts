@@ -11,6 +11,7 @@ export interface AppSettings {
   VITE_OPENAI_PROJECT?: string
   VITE_OPENAI_ASSISTANT_ID?: string
   VITE_OPENROUTER_API_KEY?: string
+  VITE_CURSOR_API_KEY?: string
   VITE_ZAI_API_KEY?: string
   VITE_MINIMAX_API_KEY?: string
   VITE_GROQ_API_KEY?: string
@@ -18,6 +19,7 @@ export interface AppSettings {
   aiProvider?:
     | 'openai'
     | 'openrouter'
+    | 'cursor'
     | 'ollama'
     | 'lm-studio'
     | 'zai'
@@ -35,6 +37,7 @@ export interface AppSettings {
   lmStudioBaseUrl?: string
   zaiBaseUrl?: string
   minimaxBaseUrl?: string
+  cursorLlmBaseUrl?: string
 
   assistantModel?: string
   assistantSystemPrompt?: string

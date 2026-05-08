@@ -1,6 +1,7 @@
 export type AIProviderKey =
   | 'openai'
   | 'openrouter'
+  | 'cursor'
   | 'ollama'
   | 'lm-studio'
   | 'zai'
@@ -47,6 +48,11 @@ export const PROVIDER_CONFIGS: Record<AIProviderKey, ProviderConfig> = {
     defaultModel: 'gpt-4.1-mini',
     nativeWebSearch: true,
   },
+  cursor: {
+    displayName: 'Cursor',
+    defaultModel: 'gpt-4.1-mini',
+    nativeWebSearch: false,
+  },
   ollama: {
     displayName: 'Ollama',
     defaultModel: 'llama3.2',
@@ -72,8 +78,16 @@ export const PROVIDER_CONFIGS: Record<AIProviderKey, ProviderConfig> = {
 export const ZAI_CODING_BASE_URL = 'https://api.z.ai/api/coding/paas/v4'
 export const MINIMAX_OPENAI_BASE_URL = 'https://api.minimax.io/v1'
 
+/**
+ * Default OpenAI-compatible base URL (must end with /v1) when enabling the Cursor
+ * provider and no URL is set yet. Cursor does not ship a single public chat/completions
+ * endpoint; many setups use a local OpenAI shim (e.g. cursor-api-proxy defaults to port 8765).
+ */
+export const CURSOR_LLM_DEFAULT_BASE_URL = 'http://127.0.0.1:8765/v1'
+
 export const CHAT_COMPLETIONS_PROVIDERS: ChatCompletionsProviderKey[] = [
   'openrouter',
+  'cursor',
   'ollama',
   'lm-studio',
   'zai',

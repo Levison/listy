@@ -21,6 +21,9 @@
         <option value="openrouter">
           OpenRouter (400+ models, no image gen)
         </option>
+        <option value="cursor">
+          Cursor (OpenAI-compatible HTTP gateway)
+        </option>
         <option value="zai">Z.ai (GLM Coding Plan)</option>
         <option value="minimax">MiniMax (OpenAI-compatible)</option>
         <option value="ollama">Ollama (Local LLMs)</option>
@@ -158,6 +161,136 @@
       </button>
 
       <TestResult :result="testResult.openrouter" />
+    </div>
+
+    <!-- Cursor LLM (OpenAI-compatible) -->
+    <div v-else-if="formData.aiProvider === 'cursor'" class="space-y-4">
+      <div class="alert alert-warning text-sm">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          class="stroke-current shrink-0 w-5 h-5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          ></path>
+        </svg>
+        <div>
+          <p>
+            Use an OpenAI-compatible base URL that exposes
+            <code class="text-xs">/v1/chat/completions</code>
+            (and ideally <code class="text-xs">GET /v1/models</code>). IDE usage
+            credits may bill separately from a gateway or Cursor Cloud Agents API.
+          </p>
+          <p class="mt-1">
+            Create API keys from
+            <a
+              href="https://cursor.com/dashboard/integrations"
+              target="_blank"
+              class="link"
+              >Cursor Dashboard → Integrations</a
+            >
+            when your gateway expects a Cursor key.
+          </p>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Cursor LLM API Key</span>
+        </label>
+        <input
+          type="password"
+          v-model="formData.VITE_CURSOR_API_KEY"
+          placeholder="cursor_… or gateway key"
+          class="input input-bordered w-full focus:input-primary"
+          :class="{
+            'input-error': testResult.cursor.error && !testResult.cursor.success,
+          }"
+        />
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">OpenAI-compatible base URL</span>
+        </label>
+        <input
+          type="text"
+          v-model="formData.cursorLlmBaseUrl"
+          :placeholder="CURSOR_LLM_DEFAULT_BASE_URL"
+          class="input input-bordered w-full focus:input-primary"
+          :class="{
+            'input-error': testResult.cursor.error && !testResult.cursor.success,
+          }"
+        />
+        <p class="text-xs text-base-content/70 mt-1">
+          Must end with <code class="text-xs">/v1</code> (same pattern as other
+          OpenAI-compatible providers).
+        </p>
+      </div>
+
+      <button
+        @click="$emit('test-cursor')"
+        class="btn btn-secondary w-full"
+        :disabled="
+          isTesting.cursor ||
+          !formData.VITE_CURSOR_API_KEY.trim() ||
+          !formData.cursorLlmBaseUrl.trim()
+        "
+      >
+        <span
+          v-if="isTesting.cursor"
+          class="loading loading-spinner loading-xs mr-2"
+        ></span>
+        Test Cursor LLM connection
+      </button>
+
+      <TestResult :result="testResult.cursor" />
+
+      <div
+        v-if="testResult.cursor.success && formData.availableModels.length > 0"
+        class="space-y-4"
+      >
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Assistant Model</span>
+          </label>
+          <select
+            v-model="formData.assistantModel"
+            class="select select-bordered w-full focus:select-primary focus:outline-none"
+          >
+            <option
+              v-for="model in formData.availableModels"
+              :key="model"
+              :value="model"
+            >
+              {{ model }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Summarization Model</span>
+          </label>
+          <select
+            v-model="formData.summarizationModel"
+            class="select select-bordered w-full focus:select-primary focus:outline-none"
+          >
+            <option
+              v-for="model in formData.availableModels"
+              :key="model"
+              :value="model"
+            >
+              {{ model }}
+            </option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <!-- Z.ai Configuration -->
@@ -582,6 +715,7 @@
 
 <script setup lang="ts">
 import TestResult from '../TestResult.vue'
+import { CURSOR_LLM_DEFAULT_BASE_URL } from '../../../services/llmProviders/providerCatalog'
 
 defineProps<{
   formData: any
@@ -592,6 +726,7 @@ defineProps<{
 defineEmits<{
   'test-openai': []
   'test-openrouter': []
+  'test-cursor': []
   'test-zai': []
   'test-minimax': []
   'test-ollama': []

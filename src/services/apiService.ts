@@ -9,6 +9,7 @@ import {
   getLMStudioClient,
   getZAIClient,
   getMiniMaxClient,
+  getCursorClient,
 } from './apiClients'
 import {
   createOpenAIResponse as createOpenAIResponseWithOpenAI,
@@ -28,6 +29,10 @@ import {
   createMiniMaxResponse,
   listMiniMaxModels,
 } from './llmProviders/minimax'
+import {
+  createCursorResponse,
+  listCursorModels,
+} from './llmProviders/cursor'
 import {
   createMiniMaxChatCompletionViaMain,
   stripReasoningFromMiniMaxContent,
@@ -108,6 +113,8 @@ function getAIClient(): OpenAI {
       return getZAIClient()
     case 'minimax':
       return getMiniMaxClient()
+    case 'cursor':
+      return getCursorClient()
     default:
       return getOpenAIClient()
   }
@@ -129,6 +136,9 @@ export const fetchOpenAIModels = async (): Promise<OpenAI.Models.Model[]> => {
   }
   if (settings.aiProvider === 'minimax') {
     return listMiniMaxModels()
+  }
+  if (settings.aiProvider === 'cursor') {
+    return listCursorModels()
   }
   return listOpenAIModels()
 }
@@ -180,6 +190,15 @@ export const createOpenAIResponse = async (
   }
   if (settings.aiProvider === 'minimax') {
     return createMiniMaxResponse(
+      input,
+      previousResponseId,
+      stream,
+      customInstructions,
+      signal
+    )
+  }
+  if (settings.aiProvider === 'cursor') {
+    return createCursorResponse(
       input,
       previousResponseId,
       stream,
