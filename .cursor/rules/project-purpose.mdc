@@ -1,0 +1,21 @@
+---
+description: Project mission — privacy-aware voice assistant with engineer-friendly controls
+alwaysApply: true
+---
+
+# Voice assistant project
+
+This repository builds a **voice assistant** in the same product class as Siri or Google Assistant: wake/intent, conversational interaction, and task execution through speech.
+
+## Priorities
+
+1. **User trust / less “spying”** — minimize opaque telemetry; prefer on-device or user-chosen backends; be explicit about what audio and metadata leave the device; default to privacy-preserving patterns and document data flows.
+2. **Engineering handles** — favor observability (structured logs, metrics, traces where appropriate), configuration surfaces, clear extension points, test hooks, and boring operability over black-box magic.
+
+When implementing features, align with these goals: comparable UX to mainstream assistants where it matters, but **transparent control** for users and **maintainable control planes** for developers.
+
+## Upstream baseline
+
+We are moving forward by **extending [pmbstyle/alice](https://github.com/pmbstyle/alice)** (Vue, Vite, Electron) as the primary reference implementation and integration surface — **not** [Project Alice](https://github.com/project-alice-assistant/ProjectAlice) (unrelated name: Pi/home platform) and **not** OpenVoiceOS unless we explicitly revisit that decision.
+
+When researching patterns or importing code, default to **alice**’s stack and repo layout; call out any deliberate divergence from upstream.

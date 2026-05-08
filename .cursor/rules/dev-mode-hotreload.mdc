@@ -1,0 +1,40 @@
+---
+description: What `npm run dev` does and doesn't auto-update; when a restart or rebuild is required
+alwaysApply: true
+---
+
+# `npm run dev` — what reloads, what doesn't
+
+`npm run dev` (in `alice-upstream/`) runs **Vite + `vite-plugin-electron`**. Not everything in this repo is hot-reloaded. Before suggesting "just save and it'll pick up the change," check this list. If a change falls in the "won't update" column, instruct the user to run the right command and/or restart dev.
+
+Authoritative source: `alice-upstream/vite.config.ts` and `alice-upstream/package.json` scripts. If those diverge from this rule, update this rule.
+
+## Auto-updates while `npm run dev` is running
+
+- **Renderer (Vue/TS/CSS) under `alice-upstream/src/**`** — Vite HMR.
+- **Electron main process (`alice-upstream/electron/main/**.ts`)** including `workers/pdfParserWorker.ts` — `vite-plugin-electron` rebuilds and restarts Electron. Expect a brief window flicker.
+- **Preload (`alice-upstream/electron/preload/index.ts`)** — rebuilds and triggers a renderer reload.
+- **`alice-upstream/vite.config.ts`** itself — Vite restarts the dev server on save.
+- **Tailwind class usage in renderer files** — picked up by `@tailwindcss/vite`.
+
+## Does NOT auto-update — manual step required
+
+| Change                                                                                | Required action                                                                                  |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Go backend** (`alice-upstream/backend/**`)                                          | `npm run build:go` (or `build:go:win` / `build:go:mac` / `build:go:linux`), then restart `npm run dev`. The Electron main spawns the prebuilt binary from `resources/backend/`. |
+| **Native modules** (`better-sqlite3`, `hnswlib-node`) — version bumps or fresh install | `npm run rebuild` (wraps `electron-rebuild` for those two), then restart dev.                    |
+| **`package.json` dependencies**                                                        | Restart `npm run dev`. `vite.config.ts` snapshots `Object.keys(pkg.dependencies)` at config-load time to compute Rollup `external`. |
+| **`.env` / `.env.*`**                                                                  | Restart `npm run dev`. Values are read via `loadEnv()` at config load and inlined into `define`. |
+| **`alice-upstream/user-customization/**`**                                             | Explicitly listed in `server.watch.ignored`. Restart dev (or move/remove from that path) to pick up changes. |
+| **Static-copied assets** from `node_modules` — VAD worklet, `silero_vad_*.onnx`, `onnxruntime-web/*.wasm` | Copied by `viteStaticCopy` at server start. Restart dev after swapping/updating them.            |
+| **Models / embeddings** under `alice-upstream/models/`                                 | Populated by `npm run setup:dependencies` / `npm run setup:embeddings`. Not watched.             |
+| **`postcss.config.js`, `tailwind.config.js`, `tsconfig*.json`, `electron-builder.json5`** | Restart dev to be safe; some are only consumed by `npm run build` and never affect dev.          |
+| **`alice-upstream/scripts/**`** (`build-go.js`, `setup-dependencies.js`, `refresh-native-artifact-hashes.mjs`, …) | Run manually via the matching `npm run …` script; never auto-executed by dev.                    |
+| **Production-only paths** — `npm run build`, `electron-builder` output in `release/`   | Not part of dev at all. Never assume `npm run dev` reflects packaged-app behavior (code signing, ASAR, auto-updater, installer hooks). |
+
+## Implications for the agent
+
+- If you edit Go (`backend/**`) or change a native-dependency version, **don't tell the user "it should reload"** — instruct them to run `npm run build:go` or `npm run rebuild` and restart dev.
+- If you add/remove an npm dependency, restarting `npm run dev` is required for Vite to recompute Rollup externals; HMR alone won't see it.
+- If you change anything under `user-customization/`, note that the dev server intentionally ignores it. That path exists so user files don't trigger reload storms; don't "fix" the ignore rule without asking.
+- Behaviors only present in packaged builds (auto-updater, signed binaries, installer flow) cannot be validated via `npm run dev`. Use `npm run build` and test the artifact in `release/`.
